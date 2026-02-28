@@ -21,7 +21,7 @@ flowchart TB
 
 ## Contact
 
-**Maintainer:** Anuj Shrivastava — IBM Security
+**Maintainer:** Anuj Shrivastava — AI Engineer, US Industry Market - Service Engineering
 
 📧 [ashrivastava@ibm.com](mailto:ashrivastava@ibm.com)
 
