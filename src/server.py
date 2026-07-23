@@ -131,6 +131,10 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
         )
 
     yield app
+    # Shutdown — close pooled CLI SSH connections
+    for ctx in app.appliances.values():
+        if ctx.cli_client:
+            ctx.cli_client.close()
     logger.info("GDP MCP Server shutting down")
 
 
@@ -308,20 +312,41 @@ def _create_http_app(host: str = "0.0.0.0", port: int = 8003) -> Starlette:
             "appliances": targets,
         })
 
-    # ── Admin endpoints (localhost only) ────────────────────────
+    # ── Admin endpoints (MCP_ADMIN_TOKEN required; no IP trust) ──
 
-    _ADMIN_ALLOWED_IPS = {"127.0.0.1", "::1", "localhost", "172.17.0.1"}
+    def _admin_authorized(request) -> bool:
+        import secrets
 
-    def _is_localhost(request) -> bool:
-        client_host = request.client.host if request.client else None
-        return client_host in _ADMIN_ALLOWED_IPS
+        admin_token = os.getenv("MCP_ADMIN_TOKEN", "").strip()
+        if not admin_token:
+            return False
+        candidates = []
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header:
+            candidates.append(auth_header.removeprefix("Bearer ").strip())
+        x_admin = request.headers.get("X-Admin-Token", "").strip()
+        if x_admin:
+            candidates.append(x_admin)
+        for candidate in candidates:
+            if candidate and secrets.compare_digest(candidate, admin_token):
+                return True
+        return False
+
+    def _admin_forbidden():
+        return JSONResponse(
+            {
+                "error": "Forbidden",
+                "message": (
+                    "Admin endpoints require MCP_ADMIN_TOKEN "
+                    "(Authorization: Bearer <token> or X-Admin-Token)."
+                ),
+            },
+            status_code=403,
+        )
 
     async def admin_create_key(request):
-        if not _is_localhost(request):
-            return JSONResponse(
-                {"error": "Forbidden", "message": "Admin endpoints are localhost only"},
-                status_code=403,
-            )
+        if not _admin_authorized(request):
+            return _admin_forbidden()
         try:
             body = await request.json()
             user = body.get("user", "").strip()
@@ -336,19 +361,13 @@ def _create_http_app(host: str = "0.0.0.0", port: int = 8003) -> Starlette:
         return JSONResponse(result, status_code=201)
 
     async def admin_list_keys(request):
-        if not _is_localhost(request):
-            return JSONResponse(
-                {"error": "Forbidden", "message": "Admin endpoints are localhost only"},
-                status_code=403,
-            )
+        if not _admin_authorized(request):
+            return _admin_forbidden()
         return JSONResponse(keystore.list_keys())
 
     async def admin_revoke_key(request):
-        if not _is_localhost(request):
-            return JSONResponse(
-                {"error": "Forbidden", "message": "Admin endpoints are localhost only"},
-                status_code=403,
-            )
+        if not _admin_authorized(request):
+            return _admin_forbidden()
         key_prefix = request.path_params["key_prefix"]
         result = keystore.revoke_key(key_prefix)
         if result is None:
