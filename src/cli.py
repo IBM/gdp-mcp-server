@@ -19,11 +19,14 @@ logger = logging.getLogger("gdp_mcp.cli")
 # Strip ANSI escape sequences from CLI output
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
-# Commands that modify system state — blocked unless confirm_destructive=True
+# Commands that modify system state — blocked unless confirm_destructive=True.
+# Includes Guardium mutation verbs (store, halt, set, …), not only stop/delete.
 _DESTRUCTIVE_PATTERNS = re.compile(
     r"\b(restart|reboot|shutdown|delete|remove|drop|restore|"
     r"reset|purge|truncate|kill|stop|disable|decommission|"
-    r"uninstall|format|wipe)\b",
+    r"uninstall|format|wipe|"
+    r"store|set|create|add|modify|update|enable|install|upgrade|"
+    r"apply|deploy|halt|clear|abort|suspend|revoke|unregister)\b",
     re.IGNORECASE,
 )
 

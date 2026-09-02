@@ -354,7 +354,7 @@ def register_tools(mcp) -> None:
         network configuration, backup/restore, diagnostics, inspection engine
         control, certificate management, patch management.
 
-        Destructive commands (restart, delete, restore, stop, etc.) will prompt
+        Destructive commands (restart, delete, restore, stop, store, halt, set, etc.) will prompt
         the user for confirmation via MCP elicitation before executing.
 
         **Read the `gdp://cli/reference` resource for the full list of ~600 commands.**
