@@ -7,6 +7,7 @@ fails with "Incorrect number of arguments / Usage: cli_wrapper".
 
 import asyncio
 import logging
+import os
 import re
 import time
 
@@ -174,7 +175,11 @@ class GDPCLIClient:
     def _ssh_exec(self, command: str, timeout: int) -> str:
         """Open an interactive Guard CLI shell, send *command*, return output."""
         client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.load_system_host_keys()
+        known_hosts = os.environ.get("GDP_SSH_KNOWN_HOSTS", "").strip()
+        if known_hosts:
+            client.load_host_keys(known_hosts)
+        client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
         host = self._config.cli_host
         port = self._config.cli_port
